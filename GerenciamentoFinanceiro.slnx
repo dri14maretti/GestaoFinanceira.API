@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GerenciamentoFinanceiro.API/GerenciamentoFinanceiro.API.csproj" />
+    <Project Path="src/GerenciamentoFinanceiro.Application/GerenciamentoFinanceiro.Application.csproj" />
+    <Project Path="src/GerenciamentoFinanceiro.Entities/GerenciamentoFinanceiro.Entities.csproj" />
+    <Project Path="src/GerenciamentoFinanceiro.PostgreSQL/GerenciamentoFinanceiro.PostgreSQL.csproj" />
+  </Folder>
+</Solution>
