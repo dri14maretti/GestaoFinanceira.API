@@ -1,8 +1,11 @@
+using System;
+
 namespace GerenciamentoFinanceiro.Entities;
 
-public class Investment
+public class Investment : IUserOwnedEntity
 {
     public Guid Id { get; private set; }
+    public Guid UserId { get; private set; }
     public decimal Value { get; private set; }
     public DateTime Date { get; private set; }
     public Guid InvestmentCategoryId { get; private set; }
@@ -11,8 +14,8 @@ public class Investment
 
     public Investment(decimal value, DateTime date, Guid investmentCategoryId)
     {
-        if (value <= 0)
-            throw new ArgumentException("Value must be greater than zero.", nameof(value));
+        if (value < 0)
+            throw new ArgumentException("Value must be non-negative.", nameof(value));
         if (investmentCategoryId == Guid.Empty)
             throw new ArgumentException("InvestmentCategoryId is required.", nameof(investmentCategoryId));
 
@@ -22,10 +25,20 @@ public class Investment
         InvestmentCategoryId = investmentCategoryId;
     }
 
+    public void AssignOwner(Guid userId)
+    {
+        if (userId == Guid.Empty)
+            throw new ArgumentException("UserId cannot be empty.", nameof(userId));
+        if (UserId != Guid.Empty && UserId != userId)
+            throw new InvalidOperationException("Entity owner cannot be reassigned.");
+
+        UserId = userId;
+    }
+
     public void Update(decimal value, DateTime date, Guid investmentCategoryId)
     {
-        if (value <= 0)
-            throw new ArgumentException("Value must be greater than zero.", nameof(value));
+        if (value < 0)
+            throw new ArgumentException("Value must be non-negative.", nameof(value));
 
         Value = value;
         Date = date;

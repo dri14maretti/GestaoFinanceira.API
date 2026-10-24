@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using GerenciamentoFinanceiro.Entities.Enums;
 
 namespace GerenciamentoFinanceiro.Application.DTOs.Investments;
@@ -11,9 +12,9 @@ public record InvestmentDto(
 );
 
 public record CreateInvestmentDto(
-    decimal Value,
-    DateTime Date,
-    Guid InvestmentCategoryId
+    [property: Range(0, double.MaxValue, ErrorMessage = "Value must be non-negative.")] decimal Value,
+    [property: Required] DateTime Date,
+    [property: Required] Guid InvestmentCategoryId
 );
 
 public record InvestmentTransactionDto(
@@ -25,10 +26,10 @@ public record InvestmentTransactionDto(
 );
 
 public record CreateInvestmentTransactionDto(
-    InvestmentTransactionType Type,
-    decimal Value,
-    DateTime Date,
-    Guid InvestmentId
+    [property: Required] InvestmentTransactionType Type,
+    [property: Range(0.01, double.MaxValue, ErrorMessage = "Value must be greater than zero.")] decimal Value,
+    [property: Required] DateTime Date,
+    [property: Required] Guid InvestmentId
 );
 
 public record InvestmentCategoryDto(
@@ -37,7 +38,7 @@ public record InvestmentCategoryDto(
 );
 
 public record CreateInvestmentCategoryDto(
-    string Name
+    [property: Required, MaxLength(100)] string Name
 );
 
 public record AnnualInvestmentReportDto(

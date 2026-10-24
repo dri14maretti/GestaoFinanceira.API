@@ -11,4 +11,5 @@ public interface IFundTransactionRepository
     Task<IEnumerable<FundTransaction>> GetByFundIdAsync(Guid fundId);
     Task<FundTransaction> AddAsync(FundTransaction entity);
     Task<bool> DeleteAsync(Guid id);
+    Task<decimal> GetNetChangeByMonthAsync(int year, int month);
 }

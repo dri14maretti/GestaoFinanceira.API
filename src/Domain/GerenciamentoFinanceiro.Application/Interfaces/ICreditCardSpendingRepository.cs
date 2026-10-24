@@ -13,4 +13,6 @@ public interface ICreditCardSpendingRepository
     Task<CreditCardSpending> AddAsync(CreditCardSpending entity);
     Task<CreditCardSpending?> UpdateAsync(CreditCardSpending entity);
     Task<bool> DeleteAsync(Guid id);
+    Task<decimal> GetTotalByMonthAsync(int year, int month);
+    Task<Dictionary<Guid, decimal>> GetTotalsByCategoryAsync(int year, int month);
 }

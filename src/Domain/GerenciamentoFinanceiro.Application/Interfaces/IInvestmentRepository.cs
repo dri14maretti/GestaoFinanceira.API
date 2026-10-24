@@ -11,4 +11,5 @@ public interface IInvestmentRepository
     Task<Investment> AddAsync(Investment entity);
     Task<Investment?> UpdateAsync(Investment entity);
     Task<bool> DeleteAsync(Guid id);
+    Task<decimal> GetTotalValueAsync();
 }

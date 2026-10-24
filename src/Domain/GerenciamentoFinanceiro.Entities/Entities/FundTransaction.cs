@@ -1,10 +1,12 @@
+using System;
 using GerenciamentoFinanceiro.Entities.Enums;
 
 namespace GerenciamentoFinanceiro.Entities;
 
-public class FundTransaction
+public class FundTransaction : IUserOwnedEntity
 {
     public Guid Id { get; private set; }
+    public Guid UserId { get; private set; }
     public FundTransactionType Type { get; private set; }
     public decimal Value { get; private set; }
     public Guid FundId { get; private set; }
@@ -24,5 +26,15 @@ public class FundTransaction
         Value = value;
         FundId = fundId;
         Date = date;
+    }
+
+    public void AssignOwner(Guid userId)
+    {
+        if (userId == Guid.Empty)
+            throw new ArgumentException("UserId cannot be empty.", nameof(userId));
+        if (UserId != Guid.Empty && UserId != userId)
+            throw new InvalidOperationException("Entity owner cannot be reassigned.");
+
+        UserId = userId;
     }
 }

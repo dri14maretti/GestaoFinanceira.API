@@ -69,6 +69,11 @@ public class PlanningService
 
     public async Task<PlanAllocationDto> CreateAllocationAsync(CreatePlanAllocationDto dto)
     {
+        var plan = await _planRepo.GetByIdAsync(dto.MonthlyPlanId)
+            ?? throw new KeyNotFoundException($"Monthly plan with ID '{dto.MonthlyPlanId}' was not found.");
+        var category = await _categoryRepo.GetByIdAsync(dto.PlanningCategoryId)
+            ?? throw new KeyNotFoundException($"Planning category with ID '{dto.PlanningCategoryId}' was not found.");
+
         var allocation = new PlanAllocation(dto.MonthlyPlanId, dto.PlanningCategoryId, dto.AllocatedValue);
         await _allocationRepo.AddAsync(allocation);
         var categories = (await _categoryRepo.GetAllAsync()).ToDictionary(c => c.Id);

@@ -12,4 +12,6 @@ public interface IInvestmentTransactionRepository
     Task<IEnumerable<InvestmentTransaction>> GetByYearAsync(int year);
     Task<InvestmentTransaction> AddAsync(InvestmentTransaction entity);
     Task<bool> DeleteAsync(Guid id);
+    Task<decimal> GetRentabilityTotalByMonthAsync(int year, int month);
+    Task<IEnumerable<InvestmentTransaction>> GetFromDateAsync(DateTime fromDate);
 }

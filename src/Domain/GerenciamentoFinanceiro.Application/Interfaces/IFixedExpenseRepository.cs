@@ -12,4 +12,5 @@ public interface IFixedExpenseRepository
     Task<FixedExpense> AddAsync(FixedExpense entity);
     Task<FixedExpense?> UpdateAsync(FixedExpense entity);
     Task<bool> DeleteAsync(Guid id);
+    Task<decimal> GetTotalAsync();
 }

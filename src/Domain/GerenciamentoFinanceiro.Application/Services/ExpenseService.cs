@@ -65,6 +65,11 @@ public class ExpenseService
 
     public async Task<CreditCardSpendingDto> CreateCreditCardSpendingAsync(CreateCreditCardSpendingDto dto)
     {
+        var category = await _categoryRepo.GetByIdAsync(dto.CategoryId)
+            ?? throw new KeyNotFoundException($"Category with ID '{dto.CategoryId}' was not found.");
+        var card = await _creditCardRepo.GetByIdAsync(dto.CreditCardId)
+            ?? throw new KeyNotFoundException($"Credit card with ID '{dto.CreditCardId}' was not found.");
+
         var entity = new CreditCardSpending(dto.Value, dto.CategoryId, dto.CreditCardId, dto.Date, dto.Description);
         await _ccSpendingRepo.AddAsync(entity);
         var categories = (await _categoryRepo.GetAllAsync()).ToDictionary(c => c.Id);
@@ -76,6 +81,12 @@ public class ExpenseService
     {
         var entity = await _ccSpendingRepo.GetByIdAsync(id);
         if (entity == null) return null;
+
+        var category = await _categoryRepo.GetByIdAsync(dto.CategoryId)
+            ?? throw new KeyNotFoundException($"Category with ID '{dto.CategoryId}' was not found.");
+        var card = await _creditCardRepo.GetByIdAsync(dto.CreditCardId)
+            ?? throw new KeyNotFoundException($"Credit card with ID '{dto.CreditCardId}' was not found.");
+
         entity.Update(dto.Value, dto.CategoryId, dto.CreditCardId, dto.Date, dto.Description);
         await _ccSpendingRepo.UpdateAsync(entity);
         var categories = (await _categoryRepo.GetAllAsync()).ToDictionary(c => c.Id);
@@ -115,6 +126,12 @@ public class ExpenseService
 
     public async Task<CashExpenseDto> CreateCashExpenseAsync(CreateCashExpenseDto dto)
     {
+        if (dto.CategoryId.HasValue)
+        {
+            _ = await _categoryRepo.GetByIdAsync(dto.CategoryId.Value)
+                ?? throw new KeyNotFoundException($"Category with ID '{dto.CategoryId.Value}' was not found.");
+        }
+
         var entity = new CashExpense(dto.Value, dto.CategoryId, dto.Bank, dto.Date, dto.Description);
         await _cashExpenseRepo.AddAsync(entity);
         var categories = (await _categoryRepo.GetAllAsync()).ToDictionary(c => c.Id);
@@ -125,6 +142,13 @@ public class ExpenseService
     {
         var entity = await _cashExpenseRepo.GetByIdAsync(id);
         if (entity == null) return null;
+
+        if (dto.CategoryId.HasValue)
+        {
+            _ = await _categoryRepo.GetByIdAsync(dto.CategoryId.Value)
+                ?? throw new KeyNotFoundException($"Category with ID '{dto.CategoryId.Value}' was not found.");
+        }
+
         entity.Update(dto.Value, dto.CategoryId, dto.Bank, dto.Date, dto.Description);
         await _cashExpenseRepo.UpdateAsync(entity);
         var categories = (await _categoryRepo.GetAllAsync()).ToDictionary(c => c.Id);
@@ -135,11 +159,10 @@ public class ExpenseService
 
     public async Task<IEnumerable<BankBalanceDto>> GetBankBalancesAsync()
     {
-        var allExpenses = await _cashExpenseRepo.GetAllAsync();
-        return allExpenses
-            .GroupBy(e => e.Bank)
-            .Select(g => new BankBalanceDto(g.Key, g.Sum(e => e.Value)))
-            .OrderBy(b => b.Bank)
+        var balances = await _cashExpenseRepo.GetBalancesByBankAsync();
+        return balances
+            .OrderBy(b => b.Key)
+            .Select(b => new BankBalanceDto(b.Key, b.Value))
             .ToList();
     }
 
@@ -173,6 +196,11 @@ public class ExpenseService
 
     public async Task<InstallmentDto> CreateInstallmentAsync(CreateInstallmentDto dto)
     {
+        var category = await _categoryRepo.GetByIdAsync(dto.CategoryId)
+            ?? throw new KeyNotFoundException($"Category with ID '{dto.CategoryId}' was not found.");
+        var card = await _creditCardRepo.GetByIdAsync(dto.CreditCardId)
+            ?? throw new KeyNotFoundException($"Credit card with ID '{dto.CreditCardId}' was not found.");
+
         var entity = new Installment(dto.Value, dto.CategoryId, dto.CreditCardId, dto.Month, dto.Description, dto.TotalInstallments, dto.CurrentInstallment);
         await _installmentRepo.AddAsync(entity);
         var categories = (await _categoryRepo.GetAllAsync()).ToDictionary(c => c.Id);
@@ -184,6 +212,12 @@ public class ExpenseService
     {
         var entity = await _installmentRepo.GetByIdAsync(id);
         if (entity == null) return null;
+
+        var category = await _categoryRepo.GetByIdAsync(dto.CategoryId)
+            ?? throw new KeyNotFoundException($"Category with ID '{dto.CategoryId}' was not found.");
+        var card = await _creditCardRepo.GetByIdAsync(dto.CreditCardId)
+            ?? throw new KeyNotFoundException($"Credit card with ID '{dto.CreditCardId}' was not found.");
+
         entity.Update(dto.Value, dto.CategoryId, dto.CreditCardId, dto.Month, dto.Description, dto.TotalInstallments, dto.CurrentInstallment);
         await _installmentRepo.UpdateAsync(entity);
         var categories = (await _categoryRepo.GetAllAsync()).ToDictionary(c => c.Id);
@@ -218,6 +252,9 @@ public class ExpenseService
 
     public async Task<FixedExpenseDto> CreateFixedExpenseAsync(CreateFixedExpenseDto dto)
     {
+        var card = await _creditCardRepo.GetByIdAsync(dto.CreditCardId)
+            ?? throw new KeyNotFoundException($"Credit card with ID '{dto.CreditCardId}' was not found.");
+
         var entity = new FixedExpense(dto.Value, dto.Description, dto.CreditCardId);
         await _fixedExpenseRepo.AddAsync(entity);
         var creditCards = (await _creditCardRepo.GetAllAsync()).ToDictionary(c => c.Id);
@@ -228,6 +265,10 @@ public class ExpenseService
     {
         var entity = await _fixedExpenseRepo.GetByIdAsync(id);
         if (entity == null) return null;
+
+        var card = await _creditCardRepo.GetByIdAsync(dto.CreditCardId)
+            ?? throw new KeyNotFoundException($"Credit card with ID '{dto.CreditCardId}' was not found.");
+
         entity.Update(dto.Value, dto.Description, dto.CreditCardId);
         await _fixedExpenseRepo.UpdateAsync(entity);
         var creditCards = (await _creditCardRepo.GetAllAsync()).ToDictionary(c => c.Id);
@@ -247,19 +288,35 @@ public class ExpenseService
         var categories = (await _categoryRepo.GetAllAsync()).ToDictionary(c => c.Id, c => c.Name);
 
         var allCategoryIds = ccSpendings.Select(s => s.CategoryId)
-            .Concat(cashExpenses.Select(e => e.CategoryId))
+            .Concat(cashExpenses.Where(e => e.CategoryId.HasValue).Select(e => e.CategoryId!.Value))
             .Concat(installments.Select(i => i.CategoryId))
             .Distinct();
+
+        var totalFixed = fixedExpenses.Sum(f => f.Value);
 
         var breakdowns = allCategoryIds.Select(catId =>
         {
             var catName = categories.GetValueOrDefault(catId, "Desconhecida");
             var ccTotal = ccSpendings.Where(s => s.CategoryId == catId).Sum(s => s.Value);
-            var cashTotal = cashExpenses.Where(e => e.CategoryId == catId).Sum(e => e.Value);
+            var cashTotal = cashExpenses.Where(e => e.CategoryId == catId).Sum(e => e.Value < 0 ? Math.Abs(e.Value) : e.Value);
             var instTotal = installments.Where(i => i.CategoryId == catId).Sum(i => i.Value);
-            var fixedTotal = fixedExpenses.Where(f => f.Id == catId).Sum(f => f.Value); // Fixed expenses don't have categoryId
+            var fixedTotal = 0m;
             return new CategoryExpenseBreakdownDto(catName, ccTotal, cashTotal, instTotal, fixedTotal, ccTotal + cashTotal + instTotal + fixedTotal);
-        }).OrderByDescending(b => b.Total).ToList();
+        }).ToList();
+
+        if (totalFixed > 0)
+        {
+            breakdowns.Add(new CategoryExpenseBreakdownDto(
+                "Despesas Fixas",
+                CreditCardTotal: 0m,
+                CashTotal: 0m,
+                InstallmentTotal: 0m,
+                FixedTotal: totalFixed,
+                Total: totalFixed
+            ));
+        }
+
+        breakdowns = breakdowns.OrderByDescending(b => b.Total).ToList();
 
         var totalExpenses = breakdowns.Sum(b => b.Total);
 
@@ -308,7 +365,11 @@ public class ExpenseService
         CashExpense entity,
         Dictionary<Guid, Category> categories)
     {
-        var categoryName = categories.TryGetValue(entity.CategoryId, out var cat) ? cat.Name : "Desconhecida";
+        string? categoryName = null;
+        if (entity.CategoryId.HasValue)
+        {
+            categoryName = categories.TryGetValue(entity.CategoryId.Value, out var cat) ? cat.Name : "Desconhecida";
+        }
         return new CashExpenseDto(entity.Id, entity.Value, entity.CategoryId, categoryName, entity.Bank, entity.Date, entity.Description);
     }
 

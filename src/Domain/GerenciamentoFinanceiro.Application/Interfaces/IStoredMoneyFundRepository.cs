@@ -11,4 +11,5 @@ public interface IStoredMoneyFundRepository
     Task<StoredMoneyFund> AddAsync(StoredMoneyFund entity);
     Task<StoredMoneyFund?> UpdateAsync(StoredMoneyFund entity);
     Task<bool> DeleteAsync(Guid id);
+    Task<decimal> GetTotalValueAsync();
 }

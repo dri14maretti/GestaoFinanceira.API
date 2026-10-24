@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using GerenciamentoFinanceiro.Entities.Enums;
 
 namespace GerenciamentoFinanceiro.Application.DTOs.StoredMoney;
@@ -9,8 +10,8 @@ public record StoredMoneyFundDto(
 );
 
 public record CreateStoredMoneyFundDto(
-    decimal TotalValue,
-    string Description
+    [property: Range(0, double.MaxValue, ErrorMessage = "TotalValue must be non-negative.")] decimal TotalValue,
+    [property: Required, MaxLength(250)] string Description
 );
 
 public record FundTransactionDto(
@@ -22,8 +23,8 @@ public record FundTransactionDto(
 );
 
 public record CreateFundTransactionDto(
-    FundTransactionType Type,
-    decimal Value,
-    Guid FundId,
-    DateTime Date
+    [property: Required] FundTransactionType Type,
+    [property: Range(0.01, double.MaxValue, ErrorMessage = "Value must be greater than zero.")] decimal Value,
+    [property: Required] Guid FundId,
+    [property: Required] DateTime Date
 );

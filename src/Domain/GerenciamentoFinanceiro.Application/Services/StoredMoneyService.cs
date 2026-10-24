@@ -63,7 +63,7 @@ public class StoredMoneyService
     public async Task<FundTransactionDto> CreateTransactionAsync(CreateFundTransactionDto dto)
     {
         var fund = await _fundRepo.GetByIdAsync(dto.FundId)
-            ?? throw new ArgumentException("Fund not found.");
+            ?? throw new KeyNotFoundException($"Stored money fund with ID '{dto.FundId}' was not found.");
 
         // Use domain methods that enforce business rules (balance checks)
         if (dto.Type == FundTransactionType.Add)

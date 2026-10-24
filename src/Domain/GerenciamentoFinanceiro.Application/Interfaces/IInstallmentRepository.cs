@@ -13,4 +13,6 @@ public interface IInstallmentRepository
     Task<Installment> AddAsync(Installment entity);
     Task<Installment?> UpdateAsync(Installment entity);
     Task<bool> DeleteAsync(Guid id);
+    Task<decimal> GetTotalByMonthAsync(int year, int month);
+    Task<Dictionary<Guid, decimal>> GetTotalsByCategoryAsync(int year, int month);
 }

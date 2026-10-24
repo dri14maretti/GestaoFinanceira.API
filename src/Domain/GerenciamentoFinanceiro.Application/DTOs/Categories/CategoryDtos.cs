@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using GerenciamentoFinanceiro.Entities.Enums;
 
 namespace GerenciamentoFinanceiro.Application.DTOs.Categories;
@@ -9,8 +10,8 @@ public record CategoryDto(
 );
 
 public record CreateCategoryDto(
-    string Name,
-    CategoryType Type
+    [property: Required, MaxLength(100)] string Name,
+    [property: Required] CategoryType Type
 );
 
 public record CreditCardDto(
@@ -21,7 +22,7 @@ public record CreditCardDto(
 );
 
 public record CreateCreditCardDto(
-    string BankName,
-    int ClosingDate,
-    int DueDate
+    [property: Required, MaxLength(100)] string BankName,
+    [property: Range(1, 31)] int ClosingDate,
+    [property: Range(1, 31)] int DueDate
 );

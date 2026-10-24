@@ -1,8 +1,11 @@
+using System;
+
 namespace GerenciamentoFinanceiro.Entities;
 
-public class PlanAllocation
+public class PlanAllocation : IUserOwnedEntity
 {
     public Guid Id { get; private set; }
+    public Guid UserId { get; private set; }
     public Guid MonthlyPlanId { get; private set; }
     public Guid PlanningCategoryId { get; private set; }
     public decimal AllocatedValue { get; private set; }
@@ -22,6 +25,16 @@ public class PlanAllocation
         MonthlyPlanId = monthlyPlanId;
         PlanningCategoryId = planningCategoryId;
         AllocatedValue = allocatedValue;
+    }
+
+    public void AssignOwner(Guid userId)
+    {
+        if (userId == Guid.Empty)
+            throw new ArgumentException("UserId cannot be empty.", nameof(userId));
+        if (UserId != Guid.Empty && UserId != userId)
+            throw new InvalidOperationException("Entity owner cannot be reassigned.");
+
+        UserId = userId;
     }
 
     public void UpdateAllocatedValue(decimal allocatedValue)

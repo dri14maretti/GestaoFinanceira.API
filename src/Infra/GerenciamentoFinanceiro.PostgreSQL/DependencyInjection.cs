@@ -1,29 +1,41 @@
-﻿using GerenciamentoFinanceiro.Application.Interfaces;
-using GerenciamentoFinanceiro.PostgreSQL.Repositories.Mock;
+using System;
+using GerenciamentoFinanceiro.Application.Interfaces;
+using GerenciamentoFinanceiro.PostgreSQL.Context;
+using GerenciamentoFinanceiro.PostgreSQL.Repositories;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace GerenciamentoFinanceiro.PostgreSQL
-{
-    public static class DependencyInjection
-    {
-        public static void AddPostgreSQL(this IServiceCollection services)
-        {
-            // --- Dependency Injection: Mock Repositories (Singletons because they use static data) ---
-            services.AddSingleton<ICategoryRepository, MockCategoryRepository>();
-            services.AddSingleton<ICreditCardRepository, MockCreditCardRepository>();
-            services.AddSingleton<ICreditCardSpendingRepository, MockCreditCardSpendingRepository>();
-            services.AddSingleton<ICashExpenseRepository, MockCashExpenseRepository>();
-            services.AddSingleton<IInstallmentRepository, MockInstallmentRepository>();
-            services.AddSingleton<IFixedExpenseRepository, MockFixedExpenseRepository>();
-            services.AddSingleton<IInvestmentRepository, MockInvestmentRepository>();
-            services.AddSingleton<IInvestmentTransactionRepository, MockInvestmentTransactionRepository>();
-            services.AddSingleton<IInvestmentCategoryRepository, MockInvestmentCategoryRepository>();
-            services.AddSingleton<IStoredMoneyFundRepository, MockStoredMoneyFundRepository>();
-            services.AddSingleton<IFundTransactionRepository, MockFundTransactionRepository>();
-            services.AddSingleton<IMonthlyPlanRepository, MockMonthlyPlanRepository>();
-            services.AddSingleton<IPlanAllocationRepository, MockPlanAllocationRepository>();
-            services.AddSingleton<IPlanningCategoryRepository, MockPlanningCategoryRepository>();
-        }
+namespace GerenciamentoFinanceiro.PostgreSQL;
 
+public static class DependencyInjection
+{
+    public static IServiceCollection AddPostgreSQL(this IServiceCollection services, IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString("DefaultConnection")
+            ?? "Host=localhost;Port=5432;Database=gestaofinanceira;Username=postgres;Password=postgrespassword";
+
+        services.AddDbContext<FinanceDbContext>(options =>
+            options.UseNpgsql(connectionString));
+
+        // --- Scoped EF Core Repositories ---
+        services.AddScoped<ICategoryRepository, CategoryRepository>();
+        services.AddScoped<ICreditCardRepository, CreditCardRepository>();
+        services.AddScoped<ICreditCardSpendingRepository, CreditCardSpendingRepository>();
+        services.AddScoped<ICashExpenseRepository, CashExpenseRepository>();
+        services.AddScoped<IInstallmentRepository, InstallmentRepository>();
+        services.AddScoped<IFixedExpenseRepository, FixedExpenseRepository>();
+        services.AddScoped<IInvestmentRepository, InvestmentRepository>();
+        services.AddScoped<IInvestmentTransactionRepository, InvestmentTransactionRepository>();
+        services.AddScoped<IInvestmentCategoryRepository, InvestmentCategoryRepository>();
+        services.AddScoped<IStoredMoneyFundRepository, StoredMoneyFundRepository>();
+        services.AddScoped<IFundTransactionRepository, FundTransactionRepository>();
+        services.AddScoped<IMonthlyPlanRepository, MonthlyPlanRepository>();
+        services.AddScoped<IPlanAllocationRepository, PlanAllocationRepository>();
+        services.AddScoped<IPlanningCategoryRepository, PlanningCategoryRepository>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+
+        return services;
     }
 }

@@ -1,4 +1,4 @@
-﻿using GerenciamentoFinanceiro.Application.Interfaces;
+using GerenciamentoFinanceiro.Application.Interfaces;
 using GerenciamentoFinanceiro.Application.Services;
 using Microsoft.Extensions.DependencyInjection;
 using System;
@@ -15,6 +15,9 @@ namespace GerenciamentoFinanceiro.Application
             services.AddScoped<InvestmentService>();
             services.AddScoped<StoredMoneyService>();
             services.AddScoped<PlanningService>();
+            services.AddScoped<CategoryService>();
+            services.AddScoped<DashboardService>();
+            services.AddScoped<AuthService>();
         }
     }
 }

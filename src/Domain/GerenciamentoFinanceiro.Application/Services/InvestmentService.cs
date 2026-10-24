@@ -44,6 +44,9 @@ public class InvestmentService
 
     public async Task<InvestmentDto> CreateInvestmentAsync(CreateInvestmentDto dto)
     {
+        var cat = await _categoryRepo.GetByIdAsync(dto.InvestmentCategoryId)
+            ?? throw new KeyNotFoundException($"Investment category with ID '{dto.InvestmentCategoryId}' was not found.");
+
         var entity = new Investment(dto.Value, dto.Date, dto.InvestmentCategoryId);
         await _investmentRepo.AddAsync(entity);
         var categories = (await _categoryRepo.GetAllAsync()).ToDictionary(c => c.Id);
@@ -54,6 +57,10 @@ public class InvestmentService
     {
         var entity = await _investmentRepo.GetByIdAsync(id);
         if (entity == null) return null;
+
+        var cat = await _categoryRepo.GetByIdAsync(dto.InvestmentCategoryId)
+            ?? throw new KeyNotFoundException($"Investment category with ID '{dto.InvestmentCategoryId}' was not found.");
+
         entity.Update(dto.Value, dto.Date, dto.InvestmentCategoryId);
         await _investmentRepo.UpdateAsync(entity);
         var categories = (await _categoryRepo.GetAllAsync()).ToDictionary(c => c.Id);
@@ -72,9 +79,8 @@ public class InvestmentService
 
     public async Task<InvestmentTransactionDto> CreateTransactionAsync(CreateInvestmentTransactionDto dto)
     {
-        var investment = await _investmentRepo.GetByIdAsync(dto.InvestmentId);
-        if (investment == null)
-            throw new ArgumentException("Investment not found.");
+        var investment = await _investmentRepo.GetByIdAsync(dto.InvestmentId)
+            ?? throw new KeyNotFoundException($"Investment with ID '{dto.InvestmentId}' was not found.");
 
         var entity = new InvestmentTransaction(dto.Type, dto.Value, dto.Date, dto.InvestmentId);
         await _transactionRepo.AddAsync(entity);
@@ -95,6 +101,39 @@ public class InvestmentService
         await _investmentRepo.UpdateAsync(investment);
 
         return MapToTransactionDto(entity);
+    }
+
+    public async Task<bool> DeleteTransactionAsync(Guid id)
+    {
+        var tx = await _transactionRepo.GetByIdAsync(id);
+        if (tx == null) return false;
+
+        var investment = await _investmentRepo.GetByIdAsync(tx.InvestmentId);
+        if (investment != null)
+        {
+            switch (tx.Type)
+            {
+                case InvestmentTransactionType.Deposit:
+                    if (investment.Value - tx.Value < 0)
+                        throw new InvalidOperationException("Cannot delete deposit transaction: resulting investment balance would be negative.");
+                    investment.Update(investment.Value - tx.Value, investment.Date, investment.InvestmentCategoryId);
+                    break;
+
+                case InvestmentTransactionType.Withdrawal:
+                    investment.Update(investment.Value + tx.Value, investment.Date, investment.InvestmentCategoryId);
+                    break;
+
+                case InvestmentTransactionType.Rentability:
+                    if (investment.Value - tx.Value < 0)
+                        throw new InvalidOperationException("Cannot delete rentability transaction: resulting investment balance would be negative.");
+                    investment.ApplyRentability(-tx.Value);
+                    break;
+            }
+
+            await _investmentRepo.UpdateAsync(investment);
+        }
+
+        return await _transactionRepo.DeleteAsync(id);
     }
 
     // --- Categories ---
@@ -134,7 +173,7 @@ public class InvestmentService
     public async Task<AnnualInvestmentReportDto> GetAnnualReportAsync(int year)
     {
         var transactions = await _transactionRepo.GetByYearAsync(year);
-        var investments = await _investmentRepo.GetAllAsync();
+        var totalInvestments = await _investmentRepo.GetTotalValueAsync();
 
         var monthlyBreakdown = Enumerable.Range(1, 12).Select(month =>
         {
@@ -150,7 +189,7 @@ public class InvestmentService
             monthlyBreakdown.Sum(m => m.Deposits),
             monthlyBreakdown.Sum(m => m.Withdrawals),
             monthlyBreakdown.Sum(m => m.Rentability),
-            investments.Sum(i => i.Value),
+            totalInvestments,
             monthlyBreakdown
         );
     }

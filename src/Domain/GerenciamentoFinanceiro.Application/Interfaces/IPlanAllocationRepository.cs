@@ -12,4 +12,5 @@ public interface IPlanAllocationRepository
     Task<PlanAllocation> AddAsync(PlanAllocation entity);
     Task<PlanAllocation?> UpdateAsync(PlanAllocation entity);
     Task<bool> DeleteAsync(Guid id);
+    Task<decimal> GetTotalAllocatedByPlanIdAsync(Guid monthlyPlanId);
 }

@@ -1,8 +1,13 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/GerenciamentoFinanceiro.API/GerenciamentoFinanceiro.API.csproj" />
-    <Project Path="src/GerenciamentoFinanceiro.Application/GerenciamentoFinanceiro.Application.csproj" />
-    <Project Path="src/GerenciamentoFinanceiro.Entities/GerenciamentoFinanceiro.Entities.csproj" />
-    <Project Path="src/GerenciamentoFinanceiro.PostgreSQL/GerenciamentoFinanceiro.PostgreSQL.csproj" />
+    <Project Path="src/UI/GerenciamentoFinanceiro.API/GerenciamentoFinanceiro.API.csproj" />
+    <Project Path="src/Domain/GerenciamentoFinanceiro.Application/GerenciamentoFinanceiro.Application.csproj" />
+    <Project Path="src/Domain/GerenciamentoFinanceiro.Entities/GerenciamentoFinanceiro.Entities.csproj" />
+    <Project Path="src/Infra/GerenciamentoFinanceiro.PostgreSQL/GerenciamentoFinanceiro.PostgreSQL.csproj" />
+    <Project Path="src/Infra/GerenciamentoFinanceiro.Security/GerenciamentoFinanceiro.Security.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GerenciamentoFinanceiro.UnitTests/GerenciamentoFinanceiro.UnitTests.csproj" />
+    <Project Path="tests/GerenciamentoFinanceiro.RegressionTests/GerenciamentoFinanceiro.RegressionTests.csproj" />
   </Folder>
 </Solution>

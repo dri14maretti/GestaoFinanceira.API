@@ -1,8 +1,11 @@
+using System;
+
 namespace GerenciamentoFinanceiro.Entities;
 
-public class CreditCard
+public class CreditCard : IUserOwnedEntity
 {
     public Guid Id { get; private set; }
+    public Guid UserId { get; private set; }
     public string BankName { get; private set; } = string.Empty;
     public int ClosingDate { get; private set; }
     public int DueDate { get; private set; }
@@ -22,6 +25,16 @@ public class CreditCard
         BankName = bankName.Trim();
         ClosingDate = closingDate;
         DueDate = dueDate;
+    }
+
+    public void AssignOwner(Guid userId)
+    {
+        if (userId == Guid.Empty)
+            throw new ArgumentException("UserId cannot be empty.", nameof(userId));
+        if (UserId != Guid.Empty && UserId != userId)
+            throw new InvalidOperationException("Entity owner cannot be reassigned.");
+
+        UserId = userId;
     }
 
     public void Update(string bankName, int closingDate, int dueDate)

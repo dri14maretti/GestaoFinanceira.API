@@ -1,8 +1,11 @@
+using System;
+
 namespace GerenciamentoFinanceiro.Entities;
 
-public class InvestmentCategory
+public class InvestmentCategory : IUserOwnedEntity
 {
     public Guid Id { get; private set; }
+    public Guid UserId { get; private set; }
     public string Name { get; private set; } = string.Empty;
 
     private InvestmentCategory() { }
@@ -14,6 +17,16 @@ public class InvestmentCategory
 
         Id = Guid.NewGuid();
         Name = name.Trim();
+    }
+
+    public void AssignOwner(Guid userId)
+    {
+        if (userId == Guid.Empty)
+            throw new ArgumentException("UserId cannot be empty.", nameof(userId));
+        if (UserId != Guid.Empty && UserId != userId)
+            throw new InvalidOperationException("Entity owner cannot be reassigned.");
+
+        UserId = userId;
     }
 
     public void Update(string name)

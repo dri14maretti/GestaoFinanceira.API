@@ -1,0 +1,1357 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Gestão Financeira API Specification",
+  "version": "1.0.0",
+  "description": "Comprehensive specification of all RESTful API endpoints, request parameters, bodies, and response models for the Gestão Financeira system.",
+  "baseUrl": "http://localhost:5000/api",
+  "security": {
+    "type": "Bearer JWT",
+    "description": "All endpoints require 'Authorization: Bearer <token>' header except /api/auth/register, /api/auth/login, and /health. Missing or invalid tokens return 401 Unauthorized RFC 7807 problem details.",
+    "tokenLifetime": "15 minutes",
+    "refreshToken": "HttpOnly cookie 'gf_refresh', 30-day session max, CSRF header 'X-Requested-With: GestaoFinanceira' required on /refresh and /logout"
+  },
+  "endpoints": [
+    {
+      "module": "Authentication",
+      "routes": [
+        {
+          "path": "/api/auth/register",
+          "method": "POST",
+          "summary": "Register a new user account",
+          "description": "Registers a user with email and password, hashes password via Argon2id, issues a short-lived JWT access token and sets an HttpOnly refresh cookie.",
+          "security": "Anonymous",
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/RegisterRequestDto" }
+          },
+          "responses": {
+            "201": { "$ref": "#/models/AuthResponseDto" },
+            "400": { "description": "Validation error or email already registered" }
+          }
+        },
+        {
+          "path": "/api/auth/login",
+          "method": "POST",
+          "summary": "Authenticate user credentials",
+          "description": "Validates email and password using constant-time Argon2id verification, issues a short-lived JWT access token, and sets an HttpOnly refresh cookie.",
+          "security": "Anonymous",
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/LoginRequestDto" }
+          },
+          "responses": {
+            "200": { "$ref": "#/models/AuthResponseDto" },
+            "401": { "description": "Invalid email or password" }
+          }
+        },
+        {
+          "path": "/api/auth/refresh",
+          "method": "POST",
+          "summary": "Rotate refresh token and issue new access token",
+          "description": "Rotates the refresh token family with reuse detection and issues a new JWT access token. Requires HttpOnly 'gf_refresh' cookie and 'X-Requested-With: GestaoFinanceira' CSRF header.",
+          "security": "Refresh Cookie + CSRF Header",
+          "headers": [
+            { "name": "X-Requested-With", "type": "string", "required": true, "example": "GestaoFinanceira" }
+          ],
+          "responses": {
+            "200": { "$ref": "#/models/AuthResponseDto" },
+            "401": { "description": "Invalid, expired, or reused refresh token" },
+            "403": { "description": "Missing or invalid CSRF header" }
+          }
+        },
+        {
+          "path": "/api/auth/logout",
+          "method": "POST",
+          "summary": "Log out and revoke active refresh token",
+          "description": "Revokes the active refresh token family and clears the 'gf_refresh' cookie. Requires 'X-Requested-With: GestaoFinanceira' CSRF header.",
+          "security": "Refresh Cookie + CSRF Header",
+          "headers": [
+            { "name": "X-Requested-With", "type": "string", "required": true, "example": "GestaoFinanceira" }
+          ],
+          "responses": {
+            "204": { "description": "Session revoked and cookie cleared" },
+            "403": { "description": "Missing or invalid CSRF header" }
+          }
+        },
+        {
+          "path": "/api/auth/me",
+          "method": "GET",
+          "summary": "Get authenticated user profile",
+          "description": "Retrieves the currently authenticated user's ID, email, and registration timestamp based on the Bearer JWT sub claim.",
+          "security": "Bearer JWT",
+          "responses": {
+            "200": { "$ref": "#/models/CurrentUserDto" },
+            "401": { "description": "Unauthorized" }
+          }
+        }
+      ]
+    },
+    {
+      "module": "Categories & Accounts",
+      "routes": [
+        {
+          "path": "/api/categories",
+          "method": "GET",
+          "summary": "List all categories",
+          "description": "Retrieves all expense and investment categories with optional type filtering.",
+          "queryParams": [
+            {
+              "name": "type",
+              "type": "string",
+              "enum": ["Expense", "Investment"],
+              "required": false,
+              "description": "Filter by category type"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "List of categories",
+              "type": "array",
+              "items": { "$ref": "#/models/CategoryDto" }
+            }
+          }
+        },
+        {
+          "path": "/api/categories/{id}",
+          "method": "GET",
+          "summary": "Get category by ID",
+          "pathParams": [
+            { "name": "id", "type": "string (uuid)", "required": true, "description": "Category GUID" }
+          ],
+          "responses": {
+            "200": { "$ref": "#/models/CategoryDto" },
+            "404": { "description": "Category not found" }
+          }
+        },
+        {
+          "path": "/api/categories",
+          "method": "POST",
+          "summary": "Create a new category",
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateCategoryDto" }
+          },
+          "responses": {
+            "201": { "$ref": "#/models/CategoryDto" },
+            "400": { "description": "Invalid input" }
+          }
+        },
+        {
+          "path": "/api/categories/{id}",
+          "method": "PUT",
+          "summary": "Update an existing category",
+          "pathParams": [
+            { "name": "id", "type": "string (uuid)", "required": true }
+          ],
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateCategoryDto" }
+          },
+          "responses": {
+            "200": { "$ref": "#/models/CategoryDto" },
+            "404": { "description": "Category not found" }
+          }
+        },
+        {
+          "path": "/api/categories/{id}",
+          "method": "DELETE",
+          "summary": "Delete a category",
+          "pathParams": [
+            { "name": "id", "type": "string (uuid)", "required": true }
+          ],
+          "responses": {
+            "204": { "description": "Category deleted successfully" },
+            "404": { "description": "Category not found" }
+          }
+        },
+        {
+          "path": "/api/credit-cards",
+          "method": "GET",
+          "summary": "List all credit cards",
+          "responses": {
+            "200": {
+              "type": "array",
+              "items": { "$ref": "#/models/CreditCardDto" }
+            }
+          }
+        },
+        {
+          "path": "/api/credit-cards/{id}",
+          "method": "GET",
+          "summary": "Get credit card by ID",
+          "pathParams": [
+            { "name": "id", "type": "string (uuid)", "required": true }
+          ],
+          "responses": {
+            "200": { "$ref": "#/models/CreditCardDto" },
+            "404": { "description": "Credit card not found" }
+          }
+        },
+        {
+          "path": "/api/credit-cards",
+          "method": "POST",
+          "summary": "Create a credit card",
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateCreditCardDto" }
+          },
+          "responses": {
+            "201": { "$ref": "#/models/CreditCardDto" }
+          }
+        },
+        {
+          "path": "/api/credit-cards/{id}",
+          "method": "PUT",
+          "summary": "Update a credit card",
+          "pathParams": [
+            { "name": "id", "type": "string (uuid)", "required": true }
+          ],
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateCreditCardDto" }
+          },
+          "responses": {
+            "200": { "$ref": "#/models/CreditCardDto" },
+            "404": { "description": "Credit card not found" }
+          }
+        },
+        {
+          "path": "/api/credit-cards/{id}",
+          "method": "DELETE",
+          "summary": "Delete a credit card",
+          "pathParams": [
+            { "name": "id", "type": "string (uuid)", "required": true }
+          ],
+          "responses": {
+            "204": { "description": "Deleted successfully" },
+            "404": { "description": "Credit card not found" }
+          }
+        },
+        {
+          "path": "/api/investment-categories",
+          "method": "GET",
+          "summary": "List all investment categories",
+          "responses": {
+            "200": {
+              "type": "array",
+              "items": { "$ref": "#/models/InvestmentCategoryDto" }
+            }
+          }
+        },
+        {
+          "path": "/api/investment-categories/{id}",
+          "method": "GET",
+          "summary": "Get investment category by ID",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": {
+            "200": { "$ref": "#/models/InvestmentCategoryDto" },
+            "404": { "description": "Category not found" }
+          }
+        },
+        {
+          "path": "/api/investment-categories",
+          "method": "POST",
+          "summary": "Create investment category",
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateInvestmentCategoryDto" }
+          },
+          "responses": { "201": { "$ref": "#/models/InvestmentCategoryDto" } }
+        },
+        {
+          "path": "/api/investment-categories/{id}",
+          "method": "PUT",
+          "summary": "Update investment category",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateInvestmentCategoryDto" }
+          },
+          "responses": {
+            "200": { "$ref": "#/models/InvestmentCategoryDto" },
+            "404": { "description": "Category not found" }
+          }
+        },
+        {
+          "path": "/api/investment-categories/{id}",
+          "method": "DELETE",
+          "summary": "Delete investment category",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": {
+            "204": { "description": "Deleted successfully" },
+            "404": { "description": "Not found" }
+          }
+        },
+        {
+          "path": "/api/planning-categories",
+          "method": "GET",
+          "summary": "List all planning categories",
+          "responses": {
+            "200": {
+              "type": "array",
+              "items": { "$ref": "#/models/PlanningCategoryDto" }
+            }
+          }
+        },
+        {
+          "path": "/api/planning-categories/{id}",
+          "method": "GET",
+          "summary": "Get planning category by ID",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": {
+            "200": { "$ref": "#/models/PlanningCategoryDto" },
+            "404": { "description": "Category not found" }
+          }
+        },
+        {
+          "path": "/api/planning-categories",
+          "method": "POST",
+          "summary": "Create planning category",
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreatePlanningCategoryDto" }
+          },
+          "responses": { "201": { "$ref": "#/models/PlanningCategoryDto" } }
+        },
+        {
+          "path": "/api/planning-categories/{id}",
+          "method": "PUT",
+          "summary": "Update planning category",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreatePlanningCategoryDto" }
+          },
+          "responses": {
+            "200": { "$ref": "#/models/PlanningCategoryDto" },
+            "404": { "description": "Category not found" }
+          }
+        },
+        {
+          "path": "/api/planning-categories/{id}",
+          "method": "DELETE",
+          "summary": "Delete planning category",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": {
+            "204": { "description": "Deleted successfully" },
+            "404": { "description": "Not found" }
+          }
+        }
+      ]
+    },
+    {
+      "module": "Expenses",
+      "routes": [
+        {
+          "path": "/api/expenses/credit-card",
+          "method": "GET",
+          "summary": "List credit card spendings",
+          "queryParams": [
+            { "name": "month", "type": "string (YYYY-MM)", "required": false },
+            { "name": "cardId", "type": "string (uuid)", "required": false },
+            { "name": "categoryId", "type": "string (uuid)", "required": false }
+          ],
+          "responses": {
+            "200": {
+              "type": "array",
+              "items": { "$ref": "#/models/CreditCardSpendingDto" }
+            }
+          }
+        },
+        {
+          "path": "/api/expenses/credit-card/{id}",
+          "method": "GET",
+          "summary": "Get credit card spending by ID",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": {
+            "200": { "$ref": "#/models/CreditCardSpendingDto" },
+            "404": { "description": "Not found" }
+          }
+        },
+        {
+          "path": "/api/expenses/credit-card",
+          "method": "POST",
+          "summary": "Create credit card spending",
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateCreditCardSpendingDto" }
+          },
+          "responses": { "201": { "$ref": "#/models/CreditCardSpendingDto" } }
+        },
+        {
+          "path": "/api/expenses/credit-card/{id}",
+          "method": "PUT",
+          "summary": "Update credit card spending",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateCreditCardSpendingDto" }
+          },
+          "responses": {
+            "200": { "$ref": "#/models/CreditCardSpendingDto" },
+            "404": { "description": "Not found" }
+          }
+        },
+        {
+          "path": "/api/expenses/credit-card/{id}",
+          "method": "DELETE",
+          "summary": "Delete credit card spending",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": { "204": { "description": "Deleted successfully" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/expenses/cash",
+          "method": "GET",
+          "summary": "List cash expenses (PIX/Boleto)",
+          "queryParams": [
+            { "name": "month", "type": "string (YYYY-MM)", "required": false },
+            { "name": "bank", "type": "string", "required": false },
+            { "name": "categoryId", "type": "string (uuid)", "required": false }
+          ],
+          "responses": {
+            "200": {
+              "type": "array",
+              "items": { "$ref": "#/models/CashExpenseDto" }
+            }
+          }
+        },
+        {
+          "path": "/api/expenses/cash/balances",
+          "method": "GET",
+          "summary": "Get cash expenses aggregated by bank",
+          "responses": {
+            "200": {
+              "type": "array",
+              "items": { "$ref": "#/models/BankBalanceDto" }
+            }
+          }
+        },
+        {
+          "path": "/api/expenses/cash/{id}",
+          "method": "GET",
+          "summary": "Get cash expense by ID",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": {
+            "200": { "$ref": "#/models/CashExpenseDto" },
+            "404": { "description": "Not found" }
+          }
+        },
+        {
+          "path": "/api/expenses/cash",
+          "method": "POST",
+          "summary": "Create cash expense",
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateCashExpenseDto" }
+          },
+          "responses": { "201": { "$ref": "#/models/CashExpenseDto" } }
+        },
+        {
+          "path": "/api/expenses/cash/{id}",
+          "method": "PUT",
+          "summary": "Update cash expense",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateCashExpenseDto" }
+          },
+          "responses": {
+            "200": { "$ref": "#/models/CashExpenseDto" },
+            "404": { "description": "Not found" }
+          }
+        },
+        {
+          "path": "/api/expenses/cash/{id}",
+          "method": "DELETE",
+          "summary": "Delete cash expense",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": { "204": { "description": "Deleted successfully" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/expenses/installments",
+          "method": "GET",
+          "summary": "List installments (Parcelas)",
+          "queryParams": [
+            { "name": "month", "type": "string (YYYY-MM)", "required": false },
+            { "name": "cardId", "type": "string (uuid)", "required": false }
+          ],
+          "responses": {
+            "200": {
+              "type": "array",
+              "items": { "$ref": "#/models/InstallmentDto" }
+            }
+          }
+        },
+        {
+          "path": "/api/expenses/installments/{id}",
+          "method": "GET",
+          "summary": "Get installment by ID",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": { "200": { "$ref": "#/models/InstallmentDto" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/expenses/installments",
+          "method": "POST",
+          "summary": "Create installment",
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateInstallmentDto" }
+          },
+          "responses": { "201": { "$ref": "#/models/InstallmentDto" } }
+        },
+        {
+          "path": "/api/expenses/installments/{id}",
+          "method": "PUT",
+          "summary": "Update installment",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateInstallmentDto" }
+          },
+          "responses": { "200": { "$ref": "#/models/InstallmentDto" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/expenses/installments/{id}",
+          "method": "DELETE",
+          "summary": "Delete installment",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": { "204": { "description": "Deleted" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/expenses/fixed",
+          "method": "GET",
+          "summary": "List recurring fixed expenses",
+          "queryParams": [
+            { "name": "cardId", "type": "string (uuid)", "required": false }
+          ],
+          "responses": {
+            "200": {
+              "type": "array",
+              "items": { "$ref": "#/models/FixedExpenseDto" }
+            }
+          }
+        },
+        {
+          "path": "/api/expenses/fixed/{id}",
+          "method": "GET",
+          "summary": "Get fixed expense by ID",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": { "200": { "$ref": "#/models/FixedExpenseDto" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/expenses/fixed",
+          "method": "POST",
+          "summary": "Create fixed expense",
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateFixedExpenseDto" }
+          },
+          "responses": { "201": { "$ref": "#/models/FixedExpenseDto" } }
+        },
+        {
+          "path": "/api/expenses/fixed/{id}",
+          "method": "PUT",
+          "summary": "Update fixed expense",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateFixedExpenseDto" }
+          },
+          "responses": { "200": { "$ref": "#/models/FixedExpenseDto" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/expenses/fixed/{id}",
+          "method": "DELETE",
+          "summary": "Delete fixed expense",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": { "204": { "description": "Deleted" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/expenses/reports/monthly",
+          "method": "GET",
+          "summary": "Comprehensive monthly expense report",
+          "queryParams": [
+            { "name": "month", "type": "string (YYYY-MM)", "required": false },
+            { "name": "year", "type": "integer", "required": false },
+            { "name": "monthNumber", "type": "integer", "required": false }
+          ],
+          "responses": {
+            "200": { "$ref": "#/models/MonthlyExpenseReportDto" }
+          }
+        },
+        {
+          "path": "/api/expenses/reports/segregated",
+          "method": "GET",
+          "summary": "Segregated spending report across payment types",
+          "queryParams": [
+            { "name": "month", "type": "string (YYYY-MM)", "required": false },
+            { "name": "categoryId", "type": "string (uuid)", "required": false }
+          ],
+          "responses": {
+            "200": { "$ref": "#/models/SegregatedSpendingReportDto" }
+          }
+        }
+      ]
+    },
+    {
+      "module": "Investments",
+      "routes": [
+        {
+          "path": "/api/investments",
+          "method": "GET",
+          "summary": "List all active investments",
+          "responses": {
+            "200": {
+              "type": "array",
+              "items": { "$ref": "#/models/InvestmentDto" }
+            }
+          }
+        },
+        {
+          "path": "/api/investments/{id}",
+          "method": "GET",
+          "summary": "Get investment by ID",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": { "200": { "$ref": "#/models/InvestmentDto" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/investments",
+          "method": "POST",
+          "summary": "Create investment",
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateInvestmentDto" }
+          },
+          "responses": { "201": { "$ref": "#/models/InvestmentDto" } }
+        },
+        {
+          "path": "/api/investments/{id}",
+          "method": "PUT",
+          "summary": "Update investment",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateInvestmentDto" }
+          },
+          "responses": { "200": { "$ref": "#/models/InvestmentDto" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/investments/{id}",
+          "method": "DELETE",
+          "summary": "Delete investment",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": { "204": { "description": "Deleted" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/investments/{id}/transactions",
+          "method": "GET",
+          "summary": "Get transaction ledger for a specific investment",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": {
+            "200": {
+              "type": "array",
+              "items": { "$ref": "#/models/InvestmentTransactionDto" }
+            }
+          }
+        },
+        {
+          "path": "/api/investments/{id}/transactions",
+          "method": "POST",
+          "summary": "Post a transaction (deposit, withdrawal, rentability) to an investment",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateInvestmentTransactionDto" }
+          },
+          "responses": { "200": { "$ref": "#/models/InvestmentTransactionDto" } }
+        },
+        {
+          "path": "/api/investments/transactions/{id}",
+          "method": "DELETE",
+          "summary": "Delete an investment transaction",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": { "204": { "description": "Deleted" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/investments/history",
+          "method": "GET",
+          "summary": "Get monthly investment portfolio balance progression",
+          "queryParams": [
+            { "name": "range", "type": "string", "example": "6m", "required": false }
+          ],
+          "responses": {
+            "200": {
+              "type": "array",
+              "items": { "$ref": "#/models/InvestmentHistoryPointDto" }
+            }
+          }
+        },
+        {
+          "path": "/api/investments/reports/annual",
+          "method": "GET",
+          "summary": "Annual investment performance and rentability breakdown",
+          "queryParams": [
+            { "name": "year", "type": "integer", "required": false }
+          ],
+          "responses": {
+            "200": { "$ref": "#/models/AnnualInvestmentReportDto" }
+          }
+        }
+      ]
+    },
+    {
+      "module": "Stored Money / Savings Funds",
+      "routes": [
+        {
+          "path": "/api/funds",
+          "method": "GET",
+          "summary": "List all savings funds",
+          "responses": {
+            "200": {
+              "type": "array",
+              "items": { "$ref": "#/models/StoredMoneyFundDto" }
+            }
+          }
+        },
+        {
+          "path": "/api/funds/{id}",
+          "method": "GET",
+          "summary": "Get savings fund by ID",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": { "200": { "$ref": "#/models/StoredMoneyFundDto" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/funds",
+          "method": "POST",
+          "summary": "Create savings fund",
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateStoredMoneyFundDto" }
+          },
+          "responses": { "201": { "$ref": "#/models/StoredMoneyFundDto" } }
+        },
+        {
+          "path": "/api/funds/{id}",
+          "method": "PUT",
+          "summary": "Update fund description",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateStoredMoneyFundDto" }
+          },
+          "responses": { "200": { "$ref": "#/models/StoredMoneyFundDto" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/funds/{id}",
+          "method": "DELETE",
+          "summary": "Delete savings fund",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": { "204": { "description": "Deleted" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/funds/{id}/transactions",
+          "method": "GET",
+          "summary": "List transactions for a savings fund",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": {
+            "200": {
+              "type": "array",
+              "items": { "$ref": "#/models/FundTransactionDto" }
+            }
+          }
+        },
+        {
+          "path": "/api/funds/{id}/transactions",
+          "method": "POST",
+          "summary": "Add or withdraw money from a savings fund",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateFundTransactionDto" }
+          },
+          "responses": { "200": { "$ref": "#/models/FundTransactionDto" } }
+        }
+      ]
+    },
+    {
+      "module": "Monthly Planning",
+      "routes": [
+        {
+          "path": "/api/plans",
+          "method": "GET",
+          "summary": "Get monthly planning (or all plans)",
+          "queryParams": [
+            { "name": "month", "type": "string (YYYY-MM)", "required": false }
+          ],
+          "responses": {
+            "200": {
+              "description": "Returns a MonthlyPlanDto if month is specified or list of MonthlyPlanDto",
+              "oneOf": [
+                { "$ref": "#/models/MonthlyPlanDto" },
+                { "type": "array", "items": { "$ref": "#/models/MonthlyPlanDto" } }
+              ]
+            }
+          }
+        },
+        {
+          "path": "/api/plans/{id}",
+          "method": "GET",
+          "summary": "Get plan by ID",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": { "200": { "$ref": "#/models/MonthlyPlanDto" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/plans",
+          "method": "POST",
+          "summary": "Create or retrieve a monthly plan",
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreateMonthlyPlanDto" }
+          },
+          "responses": { "200": { "$ref": "#/models/MonthlyPlanDto" } }
+        },
+        {
+          "path": "/api/plans/{id}",
+          "method": "PUT",
+          "summary": "Update plan expected income",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "requestBody": {
+            "required": true,
+            "schema": { "type": "number", "example": 8000.00 }
+          },
+          "responses": { "200": { "$ref": "#/models/MonthlyPlanDto" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/plans/{id}",
+          "method": "DELETE",
+          "summary": "Delete monthly plan",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": { "204": { "description": "Deleted" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/plans/{id}/allocations",
+          "method": "GET",
+          "summary": "List allocations for a plan",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "responses": {
+            "200": { "type": "array", "items": { "$ref": "#/models/PlanAllocationDto" } }
+          }
+        },
+        {
+          "path": "/api/plans/{id}/allocations",
+          "method": "POST",
+          "summary": "Create a budget allocation in a plan",
+          "pathParams": [{ "name": "id", "type": "string (uuid)", "required": true }],
+          "requestBody": {
+            "required": true,
+            "schema": { "$ref": "#/models/CreatePlanAllocationDto" }
+          },
+          "responses": { "200": { "$ref": "#/models/PlanAllocationDto" } }
+        },
+        {
+          "path": "/api/plans/allocations/{allocationId}",
+          "method": "PUT",
+          "summary": "Update an allocation amount",
+          "pathParams": [{ "name": "allocationId", "type": "string (uuid)", "required": true }],
+          "requestBody": {
+            "required": true,
+            "schema": { "type": "number", "example": 1200.00 }
+          },
+          "responses": { "200": { "$ref": "#/models/PlanAllocationDto" }, "404": { "description": "Not found" } }
+        },
+        {
+          "path": "/api/plans/allocations/{allocationId}",
+          "method": "DELETE",
+          "summary": "Delete a budget allocation",
+          "pathParams": [{ "name": "allocationId", "type": "string (uuid)", "required": true }],
+          "responses": { "204": { "description": "Deleted" }, "404": { "description": "Not found" } }
+        }
+      ]
+    },
+    {
+      "module": "Dashboard",
+      "routes": [
+        {
+          "path": "/api/dashboard/kpis",
+          "method": "GET",
+          "summary": "Monthly high-level summary KPIs and trend deltas",
+          "queryParams": [
+            { "name": "month", "type": "string (YYYY-MM)", "required": false }
+          ],
+          "responses": {
+            "200": { "$ref": "#/models/DashboardKpisDto" }
+          }
+        },
+        {
+          "path": "/api/dashboard/expenses-by-category",
+          "method": "GET",
+          "summary": "Monthly expenses breakdown by category with percentages",
+          "queryParams": [
+            { "name": "month", "type": "string (YYYY-MM)", "required": false }
+          ],
+          "responses": {
+            "200": {
+              "type": "array",
+              "items": { "$ref": "#/models/ExpensesByCategoryDto" }
+            }
+          }
+        },
+        {
+          "path": "/api/dashboard/expenses-by-type",
+          "method": "GET",
+          "summary": "Monthly expenses grouped by payment type (Credit Card, PIX/Boleto, Installments, Fixed)",
+          "queryParams": [
+            { "name": "month", "type": "string (YYYY-MM)", "required": false }
+          ],
+          "responses": {
+            "200": { "$ref": "#/models/ExpensesByTypeDto" }
+          }
+        }
+      ]
+    }
+  ],
+  "models": {
+    "CategoryDto": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "name": { "type": "string", "example": "Alimentação" },
+        "type": { "type": "string", "enum": ["Expense", "Investment"], "example": "Expense" }
+      },
+      "required": ["id", "name", "type"]
+    },
+    "CreateCategoryDto": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "example": "Lazer" },
+        "type": { "type": "string", "enum": ["Expense", "Investment"], "example": "Expense" }
+      },
+      "required": ["name", "type"]
+    },
+    "CreditCardDto": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "bankName": { "type": "string", "example": "Nubank" },
+        "closingDate": { "type": "integer", "example": 15 },
+        "dueDate": { "type": "integer", "example": 22 }
+      },
+      "required": ["id", "bankName", "closingDate", "dueDate"]
+    },
+    "CreateCreditCardDto": {
+      "type": "object",
+      "properties": {
+        "bankName": { "type": "string", "example": "Inter" },
+        "closingDate": { "type": "integer", "example": 10 },
+        "dueDate": { "type": "integer", "example": 17 }
+      },
+      "required": ["bankName", "closingDate", "dueDate"]
+    },
+    "InvestmentCategoryDto": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "name": { "type": "string", "example": "Renda Fixa" }
+      },
+      "required": ["id", "name"]
+    },
+    "CreateInvestmentCategoryDto": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "example": "Ações" }
+      },
+      "required": ["name"]
+    },
+    "PlanningCategoryDto": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "name": { "type": "string", "example": "Moradia" }
+      },
+      "required": ["id", "name"]
+    },
+    "CreatePlanningCategoryDto": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "example": "Educação" }
+      },
+      "required": ["name"]
+    },
+    "CreditCardSpendingDto": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "value": { "type": "number", "example": 89.90 },
+        "categoryId": { "type": "string", "format": "uuid" },
+        "categoryName": { "type": "string", "example": "Alimentação" },
+        "creditCardId": { "type": "string", "format": "uuid" },
+        "creditCardBankName": { "type": "string", "example": "Nubank" },
+        "date": { "type": "string", "format": "date-time", "example": "2026-05-02T00:00:00Z" },
+        "description": { "type": "string", "example": "iFood - Jantar" }
+      },
+      "required": ["id", "value", "categoryId", "categoryName", "creditCardId", "creditCardBankName", "date", "description"]
+    },
+    "CreateCreditCardSpendingDto": {
+      "type": "object",
+      "properties": {
+        "value": { "type": "number", "example": 89.90 },
+        "categoryId": { "type": "string", "format": "uuid" },
+        "creditCardId": { "type": "string", "format": "uuid" },
+        "date": { "type": "string", "format": "date-time" },
+        "description": { "type": "string", "example": "iFood - Jantar" }
+      },
+      "required": ["value", "categoryId", "creditCardId", "date", "description"]
+    },
+    "CashExpenseDto": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "value": { "type": "number", "example": 1500.00 },
+        "categoryId": { "type": "string", "format": "uuid" },
+        "categoryName": { "type": "string", "example": "Moradia" },
+        "bank": { "type": "string", "example": "Nubank" },
+        "date": { "type": "string", "format": "date-time" },
+        "description": { "type": "string", "example": "Aluguel via PIX" }
+      },
+      "required": ["id", "value", "categoryId", "categoryName", "bank", "date", "description"]
+    },
+    "CreateCashExpenseDto": {
+      "type": "object",
+      "properties": {
+        "value": { "type": "number", "example": 1500.00 },
+        "categoryId": { "type": "string", "format": "uuid" },
+        "bank": { "type": "string", "example": "Nubank" },
+        "date": { "type": "string", "format": "date-time" },
+        "description": { "type": "string", "example": "Aluguel via PIX" }
+      },
+      "required": ["value", "categoryId", "bank", "date", "description"]
+    },
+    "BankBalanceDto": {
+      "type": "object",
+      "properties": {
+        "bank": { "type": "string", "example": "Nubank" },
+        "totalExpenses": { "type": "number", "example": 4500.00 }
+      },
+      "required": ["bank", "totalExpenses"]
+    },
+    "InstallmentDto": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "value": { "type": "number", "example": 250.00 },
+        "categoryId": { "type": "string", "format": "uuid" },
+        "categoryName": { "type": "string", "example": "Eletrônicos" },
+        "creditCardId": { "type": "string", "format": "uuid" },
+        "creditCardBankName": { "type": "string", "example": "Nubank" },
+        "month": { "type": "string", "format": "date-time" },
+        "description": { "type": "string", "example": "Notebook Dell" },
+        "totalInstallments": { "type": "integer", "example": 12 },
+        "currentInstallment": { "type": "integer", "example": 3 }
+      },
+      "required": ["id", "value", "categoryId", "creditCardId", "month", "description", "totalInstallments", "currentInstallment"]
+    },
+    "CreateInstallmentDto": {
+      "type": "object",
+      "properties": {
+        "value": { "type": "number", "example": 250.00 },
+        "categoryId": { "type": "string", "format": "uuid" },
+        "creditCardId": { "type": "string", "format": "uuid" },
+        "month": { "type": "string", "format": "date-time" },
+        "description": { "type": "string", "example": "Notebook Dell" },
+        "totalInstallments": { "type": "integer", "example": 12 },
+        "currentInstallment": { "type": "integer", "example": 3 }
+      },
+      "required": ["value", "categoryId", "creditCardId", "month", "description", "totalInstallments", "currentInstallment"]
+    },
+    "FixedExpenseDto": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "value": { "type": "number", "example": 14.90 },
+        "description": { "type": "string", "example": "Spotify Premium" },
+        "creditCardId": { "type": "string", "format": "uuid" },
+        "creditCardBankName": { "type": "string", "example": "Nubank" }
+      },
+      "required": ["id", "value", "description", "creditCardId"]
+    },
+    "CreateFixedExpenseDto": {
+      "type": "object",
+      "properties": {
+        "value": { "type": "number", "example": 14.90 },
+        "description": { "type": "string", "example": "Spotify Premium" },
+        "creditCardId": { "type": "string", "format": "uuid" }
+      },
+      "required": ["value", "description", "creditCardId"]
+    },
+    "MonthlyExpenseReportDto": {
+      "type": "object",
+      "properties": {
+        "year": { "type": "integer", "example": 2026 },
+        "month": { "type": "integer", "example": 5 },
+        "totalExpenses": { "type": "number", "example": 3840.50 },
+        "categories": {
+          "type": "array",
+          "items": { "$ref": "#/models/CategoryExpenseBreakdownDto" }
+        }
+      },
+      "required": ["year", "month", "totalExpenses", "categories"]
+    },
+    "CategoryExpenseBreakdownDto": {
+      "type": "object",
+      "properties": {
+        "categoryName": { "type": "string", "example": "Moradia" },
+        "creditCardTotal": { "type": "number", "example": 0.00 },
+        "cashTotal": { "type": "number", "example": 1500.00 },
+        "installmentTotal": { "type": "number", "example": 0.00 },
+        "fixedTotal": { "type": "number", "example": 0.00 },
+        "total": { "type": "number", "example": 1500.00 }
+      },
+      "required": ["categoryName", "creditCardTotal", "cashTotal", "installmentTotal", "fixedTotal", "total"]
+    },
+    "SegregatedSpendingReportDto": {
+      "type": "object",
+      "properties": {
+        "year": { "type": "integer", "example": 2026 },
+        "month": { "type": "integer", "example": 5 },
+        "creditCardTotal": { "type": "number", "example": 1200.00 },
+        "cashTotal": { "type": "number", "example": 1500.00 },
+        "installmentTotal": { "type": "number", "example": 250.00 },
+        "fixedTotal": { "type": "number", "example": 150.00 },
+        "grandTotal": { "type": "number", "example": 3100.00 },
+        "categories": {
+          "type": "array",
+          "items": { "$ref": "#/models/CategoryExpenseBreakdownDto" }
+        }
+      },
+      "required": ["year", "month", "creditCardTotal", "cashTotal", "installmentTotal", "fixedTotal", "grandTotal", "categories"]
+    },
+    "InvestmentDto": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "value": { "type": "number", "example": 15000.00 },
+        "date": { "type": "string", "format": "date-time" },
+        "investmentCategoryId": { "type": "string", "format": "uuid" },
+        "investmentCategoryName": { "type": "string", "example": "Renda Fixa" }
+      },
+      "required": ["id", "value", "date", "investmentCategoryId", "investmentCategoryName"]
+    },
+    "CreateInvestmentDto": {
+      "type": "object",
+      "properties": {
+        "value": { "type": "number", "example": 15000.00 },
+        "date": { "type": "string", "format": "date-time" },
+        "investmentCategoryId": { "type": "string", "format": "uuid" }
+      },
+      "required": ["value", "date", "investmentCategoryId"]
+    },
+    "InvestmentTransactionDto": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "type": { "type": "string", "enum": ["Deposit", "Withdrawal", "Rentability"], "example": "Deposit" },
+        "value": { "type": "number", "example": 1000.00 },
+        "date": { "type": "string", "format": "date-time" },
+        "investmentId": { "type": "string", "format": "uuid" }
+      },
+      "required": ["id", "type", "value", "date", "investmentId"]
+    },
+    "CreateInvestmentTransactionDto": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["Deposit", "Withdrawal", "Rentability"], "example": "Deposit" },
+        "value": { "type": "number", "example": 1000.00 },
+        "date": { "type": "string", "format": "date-time" },
+        "investmentId": { "type": "string", "format": "uuid" }
+      },
+      "required": ["type", "value", "date", "investmentId"]
+    },
+    "InvestmentHistoryPointDto": {
+      "type": "object",
+      "properties": {
+        "month": { "type": "string", "example": "Mai" },
+        "value": { "type": "number", "example": 32500.00 }
+      },
+      "required": ["month", "value"]
+    },
+    "AnnualInvestmentReportDto": {
+      "type": "object",
+      "properties": {
+        "year": { "type": "integer", "example": 2026 },
+        "totalDeposits": { "type": "number", "example": 12000.00 },
+        "totalWithdrawals": { "type": "number", "example": 2000.00 },
+        "totalRentability": { "type": "number", "example": 1850.25 },
+        "portfolioValue": { "type": "number", "example": 45000.00 },
+        "monthlyBreakdown": {
+          "type": "array",
+          "items": { "$ref": "#/models/MonthlyInvestmentBreakdownDto" }
+        }
+      },
+      "required": ["year", "totalDeposits", "totalWithdrawals", "totalRentability", "portfolioValue", "monthlyBreakdown"]
+    },
+    "MonthlyInvestmentBreakdownDto": {
+      "type": "object",
+      "properties": {
+        "month": { "type": "integer", "example": 5 },
+        "deposits": { "type": "number", "example": 1000.00 },
+        "withdrawals": { "type": "number", "example": 0.00 },
+        "rentability": { "type": "number", "example": 120.50 },
+        "netChange": { "type": "number", "example": 1120.50 }
+      },
+      "required": ["month", "deposits", "withdrawals", "rentability", "netChange"]
+    },
+    "StoredMoneyFundDto": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "totalValue": { "type": "number", "example": 12000.00 },
+        "description": { "type": "string", "example": "Reserva de Emergência" }
+      },
+      "required": ["id", "totalValue", "description"]
+    },
+    "CreateStoredMoneyFundDto": {
+      "type": "object",
+      "properties": {
+        "totalValue": { "type": "number", "example": 12000.00 },
+        "description": { "type": "string", "example": "Reserva de Emergência" }
+      },
+      "required": ["totalValue", "description"]
+    },
+    "FundTransactionDto": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "type": { "type": "string", "enum": ["Add", "Withdraw"], "example": "Add" },
+        "value": { "type": "number", "example": 500.00 },
+        "fundId": { "type": "string", "format": "uuid" },
+        "date": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "type", "value", "fundId", "date"]
+    },
+    "CreateFundTransactionDto": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["Add", "Withdraw"], "example": "Add" },
+        "value": { "type": "number", "example": 500.00 },
+        "fundId": { "type": "string", "format": "uuid" },
+        "date": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "value", "fundId", "date"]
+    },
+    "MonthlyPlanDto": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "month": { "type": "string", "format": "date-time" },
+        "income": { "type": "number", "example": 7500.00 },
+        "allocations": {
+          "type": "array",
+          "items": { "$ref": "#/models/PlanAllocationDto" }
+        },
+        "totalAllocated": { "type": "number", "example": 6800.00 },
+        "surplus": { "type": "number", "example": 700.00 }
+      },
+      "required": ["id", "month", "income", "allocations", "totalAllocated", "surplus"]
+    },
+    "CreateMonthlyPlanDto": {
+      "type": "object",
+      "properties": {
+        "month": { "type": "string", "format": "date-time" },
+        "income": { "type": "number", "example": 7500.00 }
+      },
+      "required": ["month", "income"]
+    },
+    "PlanAllocationDto": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "monthlyPlanId": { "type": "string", "format": "uuid" },
+        "planningCategoryId": { "type": "string", "format": "uuid" },
+        "planningCategoryName": { "type": "string", "example": "Moradia" },
+        "allocatedValue": { "type": "number", "example": 1500.00 }
+      },
+      "required": ["id", "monthlyPlanId", "planningCategoryId", "planningCategoryName", "allocatedValue"]
+    },
+    "CreatePlanAllocationDto": {
+      "type": "object",
+      "properties": {
+        "monthlyPlanId": { "type": "string", "format": "uuid" },
+        "planningCategoryId": { "type": "string", "format": "uuid" },
+        "allocatedValue": { "type": "number", "example": 1500.00 }
+      },
+      "required": ["monthlyPlanId", "planningCategoryId", "allocatedValue"]
+    },
+    "DashboardKpisDto": {
+      "type": "object",
+      "properties": {
+        "month": { "type": "string", "example": "2026-05" },
+        "totalExpenses": { "type": "number", "example": 3840.50 },
+        "expensesTrendPercent": { "type": "number", "example": -5.2 },
+        "totalInvestments": { "type": "number", "example": 32500.00 },
+        "investmentRentabilityPercent": { "type": "number", "example": 3.8 },
+        "totalStoredMoney": { "type": "number", "example": 14200.00 },
+        "storedMoneyTrendPercent": { "type": "number", "example": 8.5 },
+        "plannedIncome": { "type": "number", "nullable": true, "example": 7500.00 },
+        "plannedAllocated": { "type": "number", "nullable": true, "example": 6800.00 },
+        "plannedSurplus": { "type": "number", "nullable": true, "example": 700.00 }
+      },
+      "required": ["month", "totalExpenses", "expensesTrendPercent", "totalInvestments", "investmentRentabilityPercent", "totalStoredMoney", "storedMoneyTrendPercent"]
+    },
+    "ExpensesByCategoryDto": {
+      "type": "object",
+      "properties": {
+        "categoryName": { "type": "string", "example": "Alimentação" },
+        "value": { "type": "number", "example": 680.00 },
+        "percentage": { "type": "number", "example": 17.7 }
+      },
+      "required": ["categoryName", "value", "percentage"]
+    },
+    "ExpensesByTypeDto": {
+      "type": "object",
+      "properties": {
+        "creditCardTotal": { "type": "number", "example": 1500.00 },
+        "cashTotal": { "type": "number", "example": 1200.00 },
+        "installmentTotal": { "type": "number", "example": 800.00 },
+        "fixedTotal": { "type": "number", "example": 340.50 },
+        "total": { "type": "number", "example": 3840.50 }
+      },
+      "required": ["creditCardTotal", "cashTotal", "installmentTotal", "fixedTotal", "total"]
+    },
+    "RegisterRequestDto": {
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email", "example": "user@example.com" },
+        "password": { "type": "string", "minLength": 8, "maxLength": 128, "example": "StrongPassword123!" }
+      },
+      "required": ["email", "password"]
+    },
+    "LoginRequestDto": {
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email", "example": "user@example.com" },
+        "password": { "type": "string", "example": "StrongPassword123!" }
+      },
+      "required": ["email", "password"]
+    },
+    "AuthResponseDto": {
+      "type": "object",
+      "properties": {
+        "accessToken": { "type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
+        "tokenType": { "type": "string", "example": "Bearer" },
+        "expiresInSeconds": { "type": "integer", "example": 900 },
+        "userId": { "type": "string", "format": "uuid", "example": "00000000-0000-0000-0000-000000000001" },
+        "email": { "type": "string", "format": "email", "example": "user@example.com" }
+      },
+      "required": ["accessToken", "tokenType", "expiresInSeconds", "userId", "email"]
+    },
+    "CurrentUserDto": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid", "example": "00000000-0000-0000-0000-000000000001" },
+        "email": { "type": "string", "format": "email", "example": "user@example.com" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "email", "createdAt"]
+    }
+  }
+}

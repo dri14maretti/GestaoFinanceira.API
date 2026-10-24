@@ -1,10 +1,12 @@
+using System;
 using GerenciamentoFinanceiro.Entities.Enums;
 
 namespace GerenciamentoFinanceiro.Entities;
 
-public class StoredMoneyFund
+public class StoredMoneyFund : IUserOwnedEntity
 {
     public Guid Id { get; private set; }
+    public Guid UserId { get; private set; }
     public decimal TotalValue { get; private set; }
     public string Description { get; private set; } = string.Empty;
 
@@ -20,6 +22,16 @@ public class StoredMoneyFund
         Id = Guid.NewGuid();
         TotalValue = totalValue;
         Description = description.Trim();
+    }
+
+    public void AssignOwner(Guid userId)
+    {
+        if (userId == Guid.Empty)
+            throw new ArgumentException("UserId cannot be empty.", nameof(userId));
+        if (UserId != Guid.Empty && UserId != userId)
+            throw new InvalidOperationException("Entity owner cannot be reassigned.");
+
+        UserId = userId;
     }
 
     /// <summary>

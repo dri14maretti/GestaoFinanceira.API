@@ -1,8 +1,11 @@
+using System;
+
 namespace GerenciamentoFinanceiro.Entities;
 
-public class FixedExpense
+public class FixedExpense : IUserOwnedEntity
 {
     public Guid Id { get; private set; }
+    public Guid UserId { get; private set; }
     public decimal Value { get; private set; }
     public string Description { get; private set; } = string.Empty;
     public Guid CreditCardId { get; private set; }
@@ -20,6 +23,16 @@ public class FixedExpense
         Value = value;
         Description = description.Trim();
         CreditCardId = creditCardId;
+    }
+
+    public void AssignOwner(Guid userId)
+    {
+        if (userId == Guid.Empty)
+            throw new ArgumentException("UserId cannot be empty.", nameof(userId));
+        if (UserId != Guid.Empty && UserId != userId)
+            throw new InvalidOperationException("Entity owner cannot be reassigned.");
+
+        UserId = userId;
     }
 
     public void Update(decimal value, string description, Guid creditCardId)

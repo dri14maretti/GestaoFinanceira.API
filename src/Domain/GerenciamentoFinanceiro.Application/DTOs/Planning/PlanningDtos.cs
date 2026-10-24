@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace GerenciamentoFinanceiro.Application.DTOs.Planning;
 
 public record MonthlyPlanDto(
@@ -10,8 +12,8 @@ public record MonthlyPlanDto(
 );
 
 public record CreateMonthlyPlanDto(
-    DateTime Month,
-    decimal Income
+    [property: Required] DateTime Month,
+    [property: Range(0.01, double.MaxValue, ErrorMessage = "Income must be greater than zero.")] decimal Income
 );
 
 public record PlanAllocationDto(
@@ -23,9 +25,9 @@ public record PlanAllocationDto(
 );
 
 public record CreatePlanAllocationDto(
-    Guid MonthlyPlanId,
-    Guid PlanningCategoryId,
-    decimal AllocatedValue
+    [property: Required] Guid MonthlyPlanId,
+    [property: Required] Guid PlanningCategoryId,
+    [property: Range(0.01, double.MaxValue, ErrorMessage = "AllocatedValue must be greater than zero.")] decimal AllocatedValue
 );
 
 public record PlanningCategoryDto(
@@ -34,5 +36,5 @@ public record PlanningCategoryDto(
 );
 
 public record CreatePlanningCategoryDto(
-    string Name
+    [property: Required, MaxLength(100)] string Name
 );
